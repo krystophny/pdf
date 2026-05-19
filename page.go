@@ -530,6 +530,25 @@ func (p Page) GetPlainText(fonts map[string]*Font) (result string, err error) {
 	if p.V.IsNull() || p.V.Key("Contents").Kind() == Null {
 		return "", nil
 	}
+	if layout, err := p.TextLayout(); err == nil {
+		text := strings.TrimSpace(layout.PlainText())
+		if text != "" {
+			return text, nil
+		}
+	}
+	if text, ok := p.encodedPlainText(fonts); ok {
+		return text, nil
+	}
+	return "", nil
+}
+
+func (p Page) encodedPlainText(fonts map[string]*Font) (result string, ok bool) {
+	defer func() {
+		if recover() != nil {
+			result = ""
+			ok = false
+		}
+	}()
 	strm := p.V.Key("Contents")
 	var enc TextEncoding = &nopEncoder{}
 
@@ -604,7 +623,7 @@ func (p Page) GetPlainText(fonts map[string]*Font) (result string, err error) {
 			}
 		}
 	})
-	return textBuilder.String(), nil
+	return textBuilder.String(), true
 }
 
 // Column represents the contents of a column
@@ -859,6 +878,9 @@ func (p Page) Content() Content {
 			text = append(text, Text{f, Trm[0][0], Trm[2][0], Trm[2][1], w0 / 1000 * Trm[0][0], string(ch)})
 
 			tx := w0/1000*g.Tfs + g.Tc
+			if ch == ' ' {
+				tx += g.Tw
+			}
 			tx *= g.Th
 			g.Tm = matrix{{1, 0, 0}, {0, 1, 0}, {tx, 0, 1}}.mul(g.Tm)
 		}
